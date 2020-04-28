@@ -59,7 +59,7 @@ def DPLiss(G, node=0):
     G.nodes[node]['LISS'] = max(node_exclude, node_include)
     return(G.nodes[node]['LISS'])
 
-def LPLiss(G):
+def LPLiss(G, category='Binary'):
     """
     This solves the Largest Independent Subset Problem
     of a networkx Graph (Undirected Tree) using
@@ -78,7 +78,7 @@ def LPLiss(G):
 
     # Initializing the problem as an LP
     decision_variables = ['x_{}'.format(i) for i in range(n)]
-    lp_dvs = [pulp.LpVariable(var, cat='Binary') for var in decision_variables]
+    lp_dvs = [pulp.LpVariable(var, cat=category) for var in decision_variables]
 
     lp_prob = pulp.LpProblem('independent_set', pulp.LpMaximize)
 
@@ -95,13 +95,18 @@ def LPLiss(G):
     obj_value = pulp.value(lp_prob.objective)
     return(obj_value)
 
+def GurobiLPLiss(G):
+    pass
+
 if __name__ == '__main__':
     dp = {}
     lp = {}
-    for tree_size in range(50, 101, 10):
+    gap = {}
+    for tree_size in range(20, 101, 10):
         print(tree_size)
         dp[tree_size] = 0
         lp[tree_size] = 0
+        gap[tree_size] = 0
         repeats = 20
         for iterate in range(repeats):
             G = nx.erdos_renyi_graph(tree_size, 0.3)
@@ -116,14 +121,19 @@ if __name__ == '__main__':
             dp[tree_size] += end - start
 
             start = time.perf_counter()
-            lp_liss = LPLiss(G)
+            ilp_liss = LPLiss(G)
             end = time.perf_counter()
 
+            lp_liss = LPLiss(G, category='Continuous')
+
             lp[tree_size] += end - start
-            assert(dp_liss == lp_liss)
+            assert(dp_liss == ilp_liss)
+            integrality_gap = lp_liss/ilp_liss
+            gap[tree_size] += integrality_gap
 
         dp[tree_size] /= repeats
         lp[tree_size] /= repeats
-        print(dp[tree_size], lp[tree_size])
+        gap[tree_size] /= repeats
+        print(dp[tree_size], lp[tree_size], gap[tree_size])
 
     print(dp, lp)
