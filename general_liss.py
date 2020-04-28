@@ -14,7 +14,6 @@ def DPGeneralLiss(G):
     for e in G.edges():
         ig.add_edge(e[0], e[1])
 
-    print(ig.alpha())
     return ig.independence_number()
 
 def DPLiss(G, node=0):
@@ -99,31 +98,32 @@ def LPLiss(G):
 if __name__ == '__main__':
     dp = {}
     lp = {}
-    for tree_size in range(50, 1001, 50):
+    for tree_size in range(50, 101, 10):
         print(tree_size)
         dp[tree_size] = 0
         lp[tree_size] = 0
-        for iterate in range(1, 100):
+        repeats = 20
+        for iterate in range(repeats):
             G = nx.erdos_renyi_graph(tree_size, 0.3)
-            assert(True == nx.is_connected(G))
-            g = nx.bfs_tree(G, 0) # BFS Tree is easy to parse
-            nx.set_node_attributes(g, None, 'LISS')
+            # assert(True == nx.is_connected(G))
+            # g = nx.bfs_tree(G, 0) # BFS Tree is easy to parse
+            # nx.set_node_attributes(g, None, 'LISS')
 
             start = time.perf_counter()
-            dp_liss = DPLiss(g)
+            dp_liss = DPGeneralLiss(G)
             end = time.perf_counter()
 
             dp[tree_size] += end - start
 
             start = time.perf_counter()
-            lp_liss = LPLiss(g)
+            lp_liss = LPLiss(G)
             end = time.perf_counter()
 
             lp[tree_size] += end - start
             assert(dp_liss == lp_liss)
 
-        dp[tree_size] /= 100
-        lp[tree_size] /= 100
+        dp[tree_size] /= repeats
+        lp[tree_size] /= repeats
         print(dp[tree_size], lp[tree_size])
 
     print(dp, lp)
