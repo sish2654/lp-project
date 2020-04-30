@@ -2,6 +2,8 @@ import networkx as nx
 import igraph
 import pulp
 import time
+import gurobipy as gp
+from gurobipy import GRB
 
 def DPGeneralLiss(G):
     """
@@ -95,45 +97,87 @@ def LPLiss(G, category='Binary'):
     obj_value = pulp.value(lp_prob.objective)
     return(obj_value)
 
-def GurobiLPLiss(G):
-    pass
+def GurobiLPLiss(G, category='Binary'):
+    """
+    This solves the Largest Independent Subset Problem
+    of a networkx Graph (Undirected Tree) using
+    Linear Programming.
+
+    The size of the decision variable is the same as
+    the order of the Graph (# of nodes)
+
+    The decision variables can take a value of 1/0. 1
+    if the node is a part of Independent Subset and 0
+    if it isn't. The objective then is to maximise this
+    sum.
+    """
+
+    n = G.order()
+
+    lp_prob = gp.Model('independent_set')
+    lp_prob.setParam('OutputFlag', 0)
+    if category == 'Binary':
+        x = lp_prob.addVars(n, vtype=GRB.BINARY, lb=0, ub=1, name='x')
+    else:
+        x = lp_prob.addVars(n, vtype=GRB.CONTINUOUS, lb=0, ub=1, name='x')
+
+    lp_prob.setObjective(x.prod([1]*n), GRB.MAXIMIZE)
+
+    for e in G.edges():
+        lp_prob.addConstr(
+            x[e[0]] + x[e[1]] <= 1,
+            name = "Edge ({} {})".format(e[0], e[1])
+        )
+
+    lp_prob.optimize()
+    return(lp_prob.ObjVal)
+
 
 if __name__ == '__main__':
     dp = {}
     lp = {}
     gap = {}
-    for tree_size in range(20, 101, 10):
-        print(tree_size)
-        dp[tree_size] = 0
-        lp[tree_size] = 0
-        gap[tree_size] = 0
-        repeats = 20
-        for iterate in range(repeats):
-            G = nx.erdos_renyi_graph(tree_size, 0.3)
-            # assert(True == nx.is_connected(G))
-            # g = nx.bfs_tree(G, 0) # BFS Tree is easy to parse
-            # nx.set_node_attributes(g, None, 'LISS')
+    for p in range(3, 10, 1):
+        p /= 10
+        print("********************")
+        print("Probability {}".format(p))
+        print("********************")
+        for tree_size in range(20, 101, 10):
+            dp[tree_size] = 0
+            lp[tree_size] = 0
+            gap[tree_size] = 0
+            repeats = 20
+            for iterate in range(repeats):
+                G = nx.erdos_renyi_graph(tree_size, p)
+                # assert(True == nx.is_connected(G))
+                # g = nx.bfs_tree(G, 0) # BFS Tree is easy to parse
+                # nx.set_node_attributes(g, None, 'LISS')
 
-            start = time.perf_counter()
-            dp_liss = DPGeneralLiss(G)
-            end = time.perf_counter()
+                start = time.perf_counter()
+                dp_liss = DPGeneralLiss(G)
+                end = time.perf_counter()
 
-            dp[tree_size] += end - start
+                dp[tree_size] += end - start
 
-            start = time.perf_counter()
-            ilp_liss = LPLiss(G)
-            end = time.perf_counter()
+                start = time.perf_counter()
+                # ilp_liss = LPLiss(G)
+                ilp_liss = GurobiLPLiss(G)
+                end = time.perf_counter()
 
-            lp_liss = LPLiss(G, category='Continuous')
+                start = time.perf_counter()
+                # lp_liss = LPLiss(G, category='Continuous')
+                lp_liss = GurobiLPLiss(G, category='Continuous')
+                end = time.perf_counter()
 
-            lp[tree_size] += end - start
-            assert(dp_liss == ilp_liss)
-            integrality_gap = lp_liss/ilp_liss
-            gap[tree_size] += integrality_gap
 
-        dp[tree_size] /= repeats
-        lp[tree_size] /= repeats
-        gap[tree_size] /= repeats
-        print(dp[tree_size], lp[tree_size], gap[tree_size])
+                lp[tree_size] += end - start
+                assert(dp_liss == ilp_liss)
+                integrality_gap = lp_liss/ilp_liss
+                gap[tree_size] += integrality_gap
+
+            dp[tree_size] /= repeats
+            lp[tree_size] /= repeats
+            gap[tree_size] /= repeats
+            print("{}\t{}\t{}\t{}\t{}".format(p, tree_size, dp[tree_size], lp[tree_size], gap[tree_size]))
 
     print(dp, lp)
